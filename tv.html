@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مستقبل الشاومي ستيك</title>
+  <style>
+    body, html {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      background-color: #0d1117; color: white;
+      font-family: system-ui, sans-serif;
+      overflow: hidden;
+    }
+    
+    /* مؤشر الماوس التفاعلي */
+    #virtual-cursor {
+      position: absolute;
+      width: 20px; height: 20px;
+      background: #00e676;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 99999;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 12px rgba(0,230,118,0.8);
+      transition: transform 0.05s ease-out;
+    }
+
+    /* شاشة حالة الاتصال والإرشادات */
+    #status-bar {
+      position: fixed; top: 10px; right: 10px;
+      background: rgba(0,0,0,0.7); padding: 8px 15px;
+      border-radius: 8px; font-size: 14px; color: #00e676;
+      border: 1px solid #00e676; z-index: 1000;
+    }
+
+    /* منطقة عرض الملفات والرسائل */
+    #content-display {
+      width: 100%; height: 100%;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+    }
+
+    iframe {
+      width: 100%; height: 100%; border: none; background: #fff;
+    }
+
+    .message-box {
+      background: #161b22; padding: 25px; border-radius: 12px;
+      border: 1px solid #30363d; text-align: center; max-width: 80%;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+  </style>
+</head>
+<body>
+
+  <div id="status-bar">📡 حالة الاستقبال: جاري الاتصال...</div>
+  <div id="virtual-cursor"></div>
+
+  <div id="content-display">
+    <div class="message-box" id="welcome-msg">
+      <h2>📺 جهاز الشاومي ستيك جاهز للاستقبال</h2>
+      <p>حرّك الماوس من جوالك، أو أرسل كود/ملف HTML ليتعرض هنا فوراً.</p>
+      <div id="text-output" style="margin-top: 15px; font-size: 20px; color: #58a6ff;"></div>
+    </div>
+  </div>
+
+  <!-- مكتبة الاتصال اللحظي -->
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <script>
+    const socket = io("https://p2p-relay-server.glitch.me");
+    const cursor = document.getElementById('virtual-cursor');
+    const statusBar = document.getElementById('status-bar');
+    const textOutput = document.getElementById('text-output');
+    const contentDisplay = document.getElementById('content-display');
+
+    // موقع الماوس الافتراضي في منتصف الشاشة
+    let cursorX = window.innerWidth / 2;
+    let cursorY = window.innerHeight / 2;
+    updateCursorPosition();
+
+    socket.on('connect', () => {
+      statusBar.innerText = '🟢 متصل وجاهز لاستقبال الأوامر';
+    });
+
+    socket.on('disconnect', () => {
+      statusBar.innerText = '🔴 تم قطع الاتصال';
+    });
+
+    // استقبال الأوامر من الجوال
+    socket.on('control-command', (cmd) => {
+      
+      // 1. حركة اللمس (الماوس)
+      if (cmd.type === 'move') {
+        cursorX += cmd.x * 1.8; // تسريع الحركة لملائمة الشاشة الكبيرة
+        cursorY += cmd.y * 1.8;
+
+        // منع الماوس من الخروج خارج الشاشة
+        cursorX = Math.max(0, Math.min(window.innerWidth, cursorX));
+        cursorY = Math.max(0, Math.min(window.innerHeight, cursorY));
+
+        updateCursorPosition();
+      }
+
+      // 2. النقر (Click)
+      else if (cmd.type === 'click') {
+        let elem = document.elementFromPoint(cursorX, cursorY);
+        if (elem) {
+          elem.click();
+          // تأثير بصري عند النقر
+          cursor.style.transform = 'translate(-50%, -50%) scale(1.5)';
+          setTimeout(() => cursor.style.transform = 'translate(-50%, -50%) scale(1)', 150);
+        }
+      }
+
+      // 3. كتابة النصوص من الكيبورد
+      else if (cmd.type === 'text') {
+        textOutput.innerText = '📝 النص المستلم: ' + cmd.data;
+      }
+
+      // 4. استلام وعرض ملفات HTML
+      else if (cmd.type === 'file') {
+        statusBar.innerText = '📁 تم استلام الملف: ' + cmd.fileName;
+        
+        // إذا كان الملف HTML نعرضه فوراً داخل iframe
+        if (cmd.fileName.endsWith('.html') || cmd.fileName.endsWith('.htm')) {
+          contentDisplay.innerHTML = `<iframe srcdoc="${escapeHtml(cmd.fileData)}"></iframe>`;
+        } else {
+          contentDisplay.innerHTML = `<div class="message-box"><h3>محتوى الملف (${cmd.fileName}):</h3><pre style="text-align:right;">${escapeHtml(cmd.fileData)}</pre></div>`;
+        }
+      }
+    });
+
+    function updateCursorPosition() {
+      cursor.style.left = cursorX + 'px';
+      cursor.style.top = cursorY + 'px';
+    }
+
+    function escapeHtml(text) {
+      return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+  </script>
+</body>
+</html>
