@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ريموت الشاومي ستيك</title>
+  <style>
+    body { font-family: sans-serif; background: #121212; color: white; text-align: center; padding: 20px; margin: 0; }
+    h2 { color: #00e676; }
+    /* منطقة اللمس Touchpad */
+    #touchpad {
+      width: 90%; height: 250px; margin: 20px auto; background: #222;
+      border: 2px dashed #00e676; border-radius: 15px;
+      display: flex; align-items: center; justify-content: center;
+      touch-action: none; user-select: none;
+    }
+    input, button {
+      width: 90%; padding: 12px; margin: 8px 0; border-radius: 8px; border: none; font-size: 16px;
+    }
+    button { background: #00e676; color: black; font-weight: bold; cursor: pointer; }
+    input[type="text"] { background: #333; color: white; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h2>📱 وحدة التحكم بالجهاز</h2>
+
+  <!-- منطقة اللمس -->
+  <div id="touchpad">احبث بأصبعك هنا لتحريك الماوس<br>(انقر للنقر)</div>
+
+  <!-- الكتابة إرسال النص -->
+  <input type="text" id="keyboardInput" placeholder="اكتب هنا للارسال للتلفزيون...">
+  <button onclick="sendText()">إرسال النص ⌨️</button>
+
+  <hr style="border-color: #333; margin: 20px 0;">
+
+  <!-- إرسال ملف HTML -->
+  <input type="file" id="fileInput" accept=".html,.txt,.png,.jpg">
+  <button onclick="sendFile()">إرسال الملف للتلفزيون 📁</button>
+
+  <!-- مكتبة الاتصال اللحظي السريعة -->
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <script>
+    // الاتصال بسيرفر نقل مجاني وسريع جداً
+    const socket = io("https://p2p-relay-server.glitch.me"); 
+
+    const touchpad = document.getElementById('touchpad');
+    let lastX = 0, lastY = 0;
+
+    // حركة اللمس
+    touchpad.addEventListener('touchmove', (e) => {
+      let touch = e.touches[0];
+      let deltaX = touch.clientX - lastX;
+      let deltaY = touch.clientY - lastY;
+      
+      socket.emit('control-command', { type: 'move', x: deltaX, y: deltaY });
+      
+      lastX = touch.clientX;
+      lastY = touch.clientY;
+    });
+
+    touchpad.addEventListener('touchstart', (e) => {
+      let touch = e.touches[0];
+      lastX = touch.clientX;
+      lastY = touch.clientY;
+    });
+
+    touchpad.addEventListener('touchend', () => {
+      socket.emit('control-command', { type: 'click' });
+    });
+
+    // إرسال النص
+    function sendText() {
+      let text = document.getElementById('keyboardInput').value;
+      if(text) {
+        socket.emit('control-command', { type: 'text', data: text });
+        document.getElementById('keyboardInput').value = '';
+      }
+    }
+
+    // إرسال ملف
+    function sendFile() {
+      let file = document.getElementById('fileInput').files[0];
+      if(!file) return alert('اختر ملفاً أولاً');
+      
+      let reader = new FileReader();
+      reader.onload = function(e) {
+        socket.emit('control-command', { 
+          type: 'file', 
+          fileName: file.name, 
+          fileData: e.target.result 
+        });
+        alert('تم إرسال الملف!');
+      };
+      reader.readAsText(file);
+    }
+  </script>
+</body>
+</html>
